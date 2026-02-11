@@ -1,129 +1,162 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
-const CreativeSignup = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [status, setStatus] = useState({ type: '', msg: '' }); // 'success' | 'error'
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setStatus({ type: 'loading', msg: 'Syncing with server...' });
+function Signup() {
+    const navigate = useNavigate();
+    const [formData, setFormData] = useState({
+        username: '',
+        email: '',
+        password: '',
+    });
+    const [message, setMessage] = useState('');
 
-    try {
-      const response = await fetch("http://127.0.0.1:8000/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email, password: password }),
-      });
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value,
+        });
+    };
 
-      const data = await response.json();
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setMessage('Creating account...');
 
-      if (response.ok) {
-        setStatus({ type: 'success', msg: `Welcome, ${email}!` });
-      } else {
-        setStatus({ type: 'error', msg: data.detail || 'Signup failed' });
-      }
-    } catch (err) {
-      setStatus({ type: 'error', msg: 'Server is offline. Start FastAPI first!' });
-    }
-  };
+        try {
+            const response = await fetch('http://127.0.0.1:8000/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData),
+            });
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.glassCard}>
-        <h2 style={styles.title}>Join the Grid</h2>
-        <p style={styles.subtitle}>Enter your credentials to proceed</p>
+            const data = await response.json();
 
-        <form onSubmit={handleSubmit}>
-          <div style={styles.inputGroup}>
-            <input 
-              type="email" 
-              placeholder="Email Address" 
-              style={styles.input}
-              onChange={(e) => setEmail(e.target.value)}
-              required 
-            />
-          </div>
-          
-          <div style={styles.inputGroup}>
-            <input 
-              type="password" 
-              placeholder="Password" 
-              style={styles.input}
-              onChange={(e) => setPassword(e.target.value)}
-              required 
-            />
-          </div>
+            if (response.ok) {
+                setMessage('Sign up successful! Redirecting to login...');
+                setTimeout(() => navigate('/login'), 2000);
+            } else {
+                setMessage(`Error: ${data.detail || 'Signup failed'}`);
+            }
+        } catch (error) {
+            setMessage('Error connecting to server.');
+            console.error(error);
+        }
+    };
 
-          <button type="submit" style={styles.button}>
-            {status.type === 'loading' ? 'Encrypting...' : 'Initialize Signup'}
-          </button>
-        </form>
+    const styles = {
+        container: {
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+            backgroundColor: '#f0f2f5',
+            fontFamily: 'Arial, sans-serif',
+        },
+        formBox: {
+            backgroundColor: '#ffffff',
+            padding: '40px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+            width: '100%',
+            maxWidth: '360px',
+        },
+        header: {
+            textAlign: 'center',
+            marginBottom: '25px',
+            color: '#333',
+        },
+        inputGroup: {
+            marginBottom: '15px',
+        },
+        label: {
+            display: 'block',
+            marginBottom: '5px',
+            fontWeight: 'bold',
+            color: '#555',
+        },
+        input: {
+            width: '100%',
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            boxSizing: 'border-box',
+        },
+        button: {
+            width: '100%',
+            padding: '12px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '16px',
+            cursor: 'pointer',
+            marginTop: '10px',
+        },
+        message: {
+            textAlign: 'center',
+            marginTop: '15px',
+            color: message.includes('Error') ? 'red' : 'green',
+        },
+    };
 
-        {status.msg && (
-          <div style={{
-            ...styles.alert, 
-            backgroundColor: status.type === 'success' ? '#06d6a033' : '#ef476f33',
-            color: status.type === 'success' ? '#06d6a0' : '#ef476f'
-          }}>
-            {status.msg}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+    return (
+        <div style={styles.container}>
+            <div style={styles.formBox}>
+                <h2 style={styles.header}>Sign Up</h2>
+                <form onSubmit={handleSubmit}>
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Username</label>
+                        <input
+                            type="text"
+                            name="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            required
+                            style={styles.input}
+                            placeholder="Pick a username"
+                        />
+                    </div>
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Email</label>
+                        <input
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            required
+                            style={styles.input}
+                            placeholder="Enter your email"
+                        />
+                    </div>
+                    <div style={styles.inputGroup}>
+                        <label style={styles.label}>Password</label>
+                        <input
+                            type="password"
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            required
+                            style={styles.input}
+                            placeholder="Create a password"
+                        />
+                    </div>
+                    <button type="submit" style={styles.button}>
+                        Sign Up
+                    </button>
+                </form>
+                {message && <p style={styles.message}>{message}</p>}
+                <p style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+                    Already have an account?{' '}
+                    <Link to="/login" style={{ color: '#007bff', textDecoration: 'none', fontWeight: 'bold' }}>
+                        Login here
+                    </Link>
+                </p>
+            </div>
+        </div>
 
-// Pure CSS-in-JS to ensure it works without external CSS files
-const styles = {
-  container: {
-    height: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'radial-gradient(circle, #1a1a2e 0%, #16213e 100%)',
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-  },
-  glassCard: {
-    background: 'rgba(255, 255, 255, 0.05)',
-    backdropFilter: 'blur(10px)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '20px',
-    padding: '40px',
-    width: '350px',
-    textAlign: 'center',
-    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
-  },
-  title: { color: '#fff', marginBottom: '10px', letterSpacing: '2px' },
-  subtitle: { color: '#888', marginBottom: '30px', fontSize: '14px' },
-  inputGroup: { marginBottom: '20px' },
-  input: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: 'none',
-    background: 'rgba(255, 255, 255, 0.1)',
-    color: '#fff',
-    outline: 'none',
-    boxSizing: 'border-box'
-  },
-  button: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: 'none',
-    background: 'linear-gradient(45deg, #480ca8, #4cc9f0)',
-    color: '#fff',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    marginTop: '10px'
-  },
-  alert: {
-    marginTop: '20px',
-    padding: '10px',
-    borderRadius: '8px',
-    fontSize: '13px'
-  }
-};
+    );
+}
 
-export default CreativeSignup;
+export default Signup;
