@@ -9,6 +9,37 @@ const AskAi = () => {
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef(null);
 
+    // Load chat history on mount
+    useEffect(() => {
+        const loadHistory = async () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/history', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (res.ok) {
+                    const history = await res.json();
+                    // Convert history to messages format
+                    const loadedMessages = [];
+                    history.forEach(item => {
+                        loadedMessages.push({ role: 'user', content: item.query });
+                        loadedMessages.push({ role: 'assistant', content: item.response });
+                    });
+                    setMessages(loadedMessages);
+                }
+            } catch (err) {
+                console.error('Failed to load history:', err);
+            }
+        };
+
+        loadHistory();
+    }, []);
+
     // Auto-scroll to bottom
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -24,12 +55,16 @@ const AskAi = () => {
         setIsLoading(true);
 
         try {
+            const token = localStorage.getItem('access_token');
             const res = await fetch('http://127.0.0.1:8000/ask', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    message: input, 
-                    system_prompt: "You are a creative and helpful assistant." 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    message: input,
+                    system_prompt: "You are a creative and helpful assistant."
                 }),
             });
             const data = await res.json();
@@ -78,11 +113,10 @@ const AskAi = () => {
                     ) : (
                         messages.map((msg, i) => (
                             <div key={i} className={`flex gap-4 mb-8 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm ${
-                                    msg.role === 'user' 
-                                    ? 'bg-indigo-600 text-white rounded-tr-none' 
-                                    : 'bg-[#1a1f26] border border-white/5 rounded-tl-none prose prose-invert'
-                                }`}>
+                                <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm ${msg.role === 'user'
+                                        ? 'bg-indigo-600 text-white rounded-tr-none'
+                                        : 'bg-[#1a1f26] border border-white/5 rounded-tl-none prose prose-invert'
+                                    }`}>
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                                 </div>
                             </div>

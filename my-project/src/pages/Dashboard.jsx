@@ -7,13 +7,66 @@ const Dashboard = () => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    
+
     // History: Array of objects [{ id, title, messages }]
-    const [history, setHistory] = useState([
-        { id: 1, title: "Welcome Chat", messages: [{ role: 'assistant', content: "Hello! How can I help you today?" }] }
-    ]);
-    
+    // History: Array of objects [{ id, title, messages }]
+    // Initialize with empty array to ensure fresh start for each session
+    const [history, setHistory] = useState([]);
+
     const scrollRef = useRef(null);
+
+    const handleLogout = () => {
+        localStorage.removeItem('access_token');
+        navigate('/login');
+    };
+
+    // Load chat history on mount
+    useEffect(() => {
+        const loadHistory = async () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) return;
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/history', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (res.ok) {
+                    const historyData = await res.json();
+                    // Convert backend history to dashboard format
+                    const loadedHistory = [];
+                    let currentChat = null;
+
+                    historyData.forEach((item, index) => {
+                        if (index === 0 || index % 5 === 0) {
+                            // Start new chat every 5 messages or at beginning
+                            if (currentChat) loadedHistory.push(currentChat);
+                            currentChat = {
+                                id: item.id,
+                                title: item.query.substring(0, 20),
+                                messages: [
+                                    { role: 'user', content: item.query },
+                                    { role: 'assistant', content: item.response }
+                                ]
+                            };
+                        } else if (currentChat) {
+                            currentChat.messages.push({ role: 'user', content: item.query });
+                            currentChat.messages.push({ role: 'assistant', content: item.response });
+                        }
+                    });
+
+                    if (currentChat) loadedHistory.push(currentChat);
+                    setHistory(loadedHistory);
+                }
+            } catch (err) {
+                console.error('Failed to load history:', err);
+            }
+        };
+
+        loadHistory();
+    }, []);
 
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,7 +80,7 @@ const Dashboard = () => {
         e.stopPropagation(); // Prevents loading the chat when clicking delete
         const updatedHistory = history.filter(chat => chat.id !== id);
         setHistory(updatedHistory);
-        
+
         // If we deleted the chat we were currently viewing, clear the screen
         setMessages([]);
     };
@@ -38,21 +91,25 @@ const Dashboard = () => {
 
         const userMsg = { role: 'user', content: input };
         const updatedMessages = [...messages, userMsg];
-        
+
         setMessages(updatedMessages);
         setInput('');
         setIsLoading(true);
 
         try {
+            const token = localStorage.getItem('access_token');
             const res = await fetch('http://127.0.0.1:8000/ask', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({ message: input, system_prompt: "Helpful Assistant" }),
             });
             const data = await res.json();
             const aiMsg = { role: 'assistant', content: data.response };
             const finalMessages = [...updatedMessages, aiMsg];
-            
+
             setMessages(finalMessages);
 
             if (messages.length === 0) {
@@ -75,29 +132,38 @@ const Dashboard = () => {
 
     return (
         <div className="flex h-screen bg-[#212121] text-gray-100 font-sans overflow-hidden">
-            
+
             {/* SIDEBAR */}
             <aside className="w-[260px] bg-[#171717] flex flex-col p-3 border-r border-white/10">
-                <button 
-                    onClick={() => setMessages([])} 
+                <button
+                    onClick={() => setMessages([])}
                     className="flex items-center gap-3 w-full p-3 rounded-md border border-white/20 hover:bg-[#2c2c2c] transition text-sm mb-4"
                 >
                     <span className="text-xl">+</span> New Chat
                 </button>
-                
+
+                <div className="flex flex-col gap-1 mb-4">
+                    <button onClick={() => navigate('/')} className="flex items-center gap-3 w-full p-2 text-sm text-gray-300 hover:bg-[#2c2c2c] rounded transition">
+                        <span>🏠</span> Home
+                    </button>
+                    <button onClick={() => navigate('/profile')} className="flex items-center gap-3 w-full p-2 text-sm text-gray-300 hover:bg-[#2c2c2c] rounded transition">
+                        <span>👤</span> Profile
+                    </button>
+                </div>
+
                 <div className="flex-1 overflow-y-auto">
                     <p className="text-[11px] text-gray-500 font-bold px-2 mb-2 uppercase tracking-wider">Recent History</p>
                     <div className="space-y-1">
                         {history.map((chat) => (
-                            <div 
-                                key={chat.id} 
+                            <div
+                                key={chat.id}
                                 onClick={() => loadChat(chat)}
                                 className="group w-full p-2 text-sm text-gray-300 hover:bg-[#2c2c2c] rounded cursor-pointer flex items-center justify-between transition"
                             >
                                 <div className="truncate flex items-center gap-2">
                                     <span>💬</span> {chat.title}
                                 </div>
-                                <button 
+                                <button
                                     onClick={(e) => deleteChat(e, chat.id)}
                                     className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition"
                                     title="Delete chat"
@@ -109,7 +175,7 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                <button onClick={() => navigate('/login')} className="p-3 text-sm text-red-400 hover:bg-red-900/10 rounded-md mt-auto">
+                <button onClick={handleLogout} className="p-3 text-sm text-red-400 hover:bg-red-900/10 rounded-md mt-auto">
                     Logout
                 </button>
             </aside>
@@ -142,7 +208,7 @@ const Dashboard = () => {
                 <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-[#212121] via-[#212121] to-transparent pt-10">
                     <div className="max-w-3xl mx-auto px-4 pb-8">
                         <form onSubmit={handleSend} className="relative flex items-center">
-                            <input 
+                            <input
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 className="w-full bg-[#2f2f2f] border border-white/10 rounded-xl py-4 pl-4 pr-12 focus:outline-none focus:ring-1 focus:ring-white/30 text-white placeholder-gray-500 shadow-2xl"
