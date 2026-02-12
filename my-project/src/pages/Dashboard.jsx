@@ -1,115 +1,157 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const [user, setUser] = useState({ name: 'User', email: '' });
+    const [messages, setMessages] = useState([]);
+    const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // History: Array of objects [{ id, title, messages }]
+    const [history, setHistory] = useState([
+        { id: 1, title: "Welcome Chat", messages: [{ role: 'assistant', content: "Hello! How can I help you today?" }] }
+    ]);
+    
+    const scrollRef = useRef(null);
 
     useEffect(() => {
-        // Simple authentication check
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-            navigate('/login');
-        }
-        // In a real app, you'd fetch user data here
-    }, [navigate]);
+        scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
-    const handleLogout = () => {
-        localStorage.removeItem('access_token');
-        navigate('/login');
+    const loadChat = (chat) => {
+        setMessages(chat.messages);
     };
 
-    const stats = [
-        { label: 'Total Projects', value: '12', icon: '📁', color: 'bg-blue-500' },
-        { label: 'Active Tasks', value: '5', icon: '⚡', color: 'bg-green-500' },
-        { label: 'Messages', value: '3', icon: '✉️', color: 'bg-purple-500' },
-        { label: 'Credits', value: '450', icon: '💎', color: 'bg-yellow-500' },
-    ];
+    const deleteChat = (e, id) => {
+        e.stopPropagation(); // Prevents loading the chat when clicking delete
+        const updatedHistory = history.filter(chat => chat.id !== id);
+        setHistory(updatedHistory);
+        
+        // If we deleted the chat we were currently viewing, clear the screen
+        setMessages([]);
+    };
 
-    const activities = [
-        { id: 1, text: 'Logged in from a new device', time: '2 mins ago' },
-        { id: 2, text: 'Completed "Project Alpha" milestones', time: '1 hour ago' },
-        { id: 3, text: 'Password changed successfully', time: 'Yesterday' },
-    ];
+    const handleSend = async (e) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading) return;
+
+        const userMsg = { role: 'user', content: input };
+        const updatedMessages = [...messages, userMsg];
+        
+        setMessages(updatedMessages);
+        setInput('');
+        setIsLoading(true);
+
+        try {
+            const res = await fetch('http://127.0.0.1:8000/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: input, system_prompt: "Helpful Assistant" }),
+            });
+            const data = await res.json();
+            const aiMsg = { role: 'assistant', content: data.response };
+            const finalMessages = [...updatedMessages, aiMsg];
+            
+            setMessages(finalMessages);
+
+            if (messages.length === 0) {
+                // New Chat: Create new history entry with unique ID
+                setHistory(prev => [{ id: Date.now(), title: input.substring(0, 20), messages: finalMessages }, ...prev]);
+            } else {
+                // Existing Chat: Find the most recent chat and update its messages
+                setHistory(prev => {
+                    const newHist = [...prev];
+                    newHist[0] = { ...newHist[0], messages: finalMessages };
+                    return newHist;
+                });
+            }
+        } catch (err) {
+            setMessages(prev => [...prev, { role: 'assistant', content: "**Error:** System offline." }]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
-            {/* Sidebar */}
-            <aside className="w-64 bg-indigo-900 text-white flex flex-col">
-                <div className="p-6 text-2xl font-bold border-b border-indigo-800 flex items-center gap-2">
-                    <span className="text-3xl">🚀</span> DashVite
+        <div className="flex h-screen bg-[#212121] text-gray-100 font-sans overflow-hidden">
+            
+            {/* SIDEBAR */}
+            <aside className="w-[260px] bg-[#171717] flex flex-col p-3 border-r border-white/10">
+                <button 
+                    onClick={() => setMessages([])} 
+                    className="flex items-center gap-3 w-full p-3 rounded-md border border-white/20 hover:bg-[#2c2c2c] transition text-sm mb-4"
+                >
+                    <span className="text-xl">+</span> New Chat
+                </button>
+                
+                <div className="flex-1 overflow-y-auto">
+                    <p className="text-[11px] text-gray-500 font-bold px-2 mb-2 uppercase tracking-wider">Recent History</p>
+                    <div className="space-y-1">
+                        {history.map((chat) => (
+                            <div 
+                                key={chat.id} 
+                                onClick={() => loadChat(chat)}
+                                className="group w-full p-2 text-sm text-gray-300 hover:bg-[#2c2c2c] rounded cursor-pointer flex items-center justify-between transition"
+                            >
+                                <div className="truncate flex items-center gap-2">
+                                    <span>💬</span> {chat.title}
+                                </div>
+                                <button 
+                                    onClick={(e) => deleteChat(e, chat.id)}
+                                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition"
+                                    title="Delete chat"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <nav className="flex-grow p-4 space-y-2">
-                    <a href="#" className="block p-3 rounded bg-indigo-800 text-white font-medium">Dashboard</a>
-                    <a href="#" className="block p-3 rounded hover:bg-indigo-800 transition">Analytics</a>
-                    <a href="#" className="block p-3 rounded hover:bg-indigo-800 transition">Settings</a>
-                </nav>
-                <div className="p-6 border-t border-indigo-800">
-                    <button
-                        onClick={handleLogout}
-                        className="w-full bg-red-600 hover:bg-red-700 p-2 rounded font-semibold transition flex items-center justify-center gap-2"
-                    >
-                        <span>🚪</span> Logout
-                    </button>
 
-                </div>
+                <button onClick={() => navigate('/login')} className="p-3 text-sm text-red-400 hover:bg-red-900/10 rounded-md mt-auto">
+                    Logout
+                </button>
             </aside>
 
-            {/* Main Content */}
-            <main className="flex-grow p-8">
-                <header className="flex justify-between items-center mb-10">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-800">Welcome Back, {user.name}!</h1>
-                        <p className="text-gray-500 mt-1">Here is what is happening with your account today.</p>
-                    </div>
-                </header>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                    {stats.map((stat, idx) => (
-                        <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
-                            <div className={`${stat.color} w-12 h-12 rounded-lg flex items-center justify-center text-2xl`}>
-                                {stat.icon}
-                            </div>
-                            <div>
-                                <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">{stat.label}</p>
-                                <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
-                            </div>
+            {/* MAIN CONTENT */}
+            <main className="flex-1 flex flex-col relative bg-[#212121]">
+                <div className="flex-1 overflow-y-auto pb-32 custom-scrollbar">
+                    {messages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full opacity-20 select-none">
+                            <h1 className="text-4xl font-bold">DashVite AI</h1>
                         </div>
-                    ))}
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Recent Activity */}
-                    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <h3 className="text-xl font-bold text-gray-800 mb-6">Recent Activity</h3>
-                        <div className="space-y-6">
-                            {activities.map(activity => (
-                                <div key={activity.id} className="flex gap-4 items-start pb-6 border-b border-gray-50 last:border-0 last:pb-0">
-                                    <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2"></div>
-                                    <div className="flex-grow">
-                                        <p className="text-gray-800 font-medium">{activity.text}</p>
-                                        <p className="text-sm text-gray-400 mt-1">{activity.time}</p>
+                    ) : (
+                        messages.map((msg, i) => (
+                            <div key={i} className={`w-full py-8 ${msg.role === 'assistant' ? 'bg-[#2f2f2f]/30' : ''}`}>
+                                <div className="max-w-3xl mx-auto flex gap-6 px-4">
+                                    <div className={`w-8 h-8 rounded-sm flex items-center justify-center shrink-0 text-xs font-bold shadow-lg ${msg.role === 'user' ? 'bg-indigo-600' : 'bg-[#10a37f]'}`}>
+                                        {msg.role === 'user' ? 'U' : 'AI'}
+                                    </div>
+                                    <div className="flex-1 min-w-0 prose prose-invert max-w-none prose-pre:bg-black prose-pre:border prose-pre:border-white/10">
+                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                            </div>
+                        ))
+                    )}
+                    <div ref={scrollRef} />
+                </div>
 
-                    {/* Quick Tools */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                        <h3 className="text-xl font-bold text-gray-800 mb-6">Quick Tools</h3>
-                        <div className="space-y-4">
-                            <button className="w-full text-left p-4 rounded-lg border border-indigo-50 hover:bg-indigo-50 transition font-medium text-indigo-700">
-                                📊 Generate Report
+                {/* INPUT AREA */}
+                <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-[#212121] via-[#212121] to-transparent pt-10">
+                    <div className="max-w-3xl mx-auto px-4 pb-8">
+                        <form onSubmit={handleSend} className="relative flex items-center">
+                            <input 
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                className="w-full bg-[#2f2f2f] border border-white/10 rounded-xl py-4 pl-4 pr-12 focus:outline-none focus:ring-1 focus:ring-white/30 text-white placeholder-gray-500 shadow-2xl"
+                                placeholder="Message DashVite..."
+                            />
+                            <button type="submit" className="absolute right-2.5 bg-white text-black p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-20" disabled={!input.trim()}>
+                                ➔
                             </button>
-                            <button className="w-full text-left p-4 rounded-lg border border-indigo-50 hover:bg-indigo-50 transition font-medium text-indigo-700">
-                                🛠️ Account Audit
-                            </button>
-                            <button className="w-full text-left p-4 rounded-lg border border-indigo-50 hover:bg-indigo-50 transition font-medium text-indigo-700">
-                                🔑 security Check
-                            </button>
-                        </div>
+                        </form>
                     </div>
                 </div>
             </main>
