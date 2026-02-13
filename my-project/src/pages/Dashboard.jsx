@@ -27,7 +27,7 @@ const Dashboard = () => {
             if (!token) return;
 
             try {
-                const res = await fetch('http://127.0.0.1:8000/history', {
+                const res = await fetch(`${import.meta.env.VITE_API_BASE}/history`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -98,7 +98,7 @@ const Dashboard = () => {
 
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch('http://127.0.0.1:8000/ask', {
+            const res = await fetch(`${import.meta.env.VITE_API_BASE}/ask`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

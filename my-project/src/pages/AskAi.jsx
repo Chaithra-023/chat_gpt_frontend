@@ -16,7 +16,7 @@ const AskAi = () => {
             if (!token) return;
 
             try {
-                const res = await fetch('http://127.0.0.1:8000/history', {
+                const res = await fetch(`${import.meta.env.VITE_API_BASE}/history`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -56,7 +56,7 @@ const AskAi = () => {
 
         try {
             const token = localStorage.getItem('access_token');
-            const res = await fetch('http://127.0.0.1:8000/ask', {
+            const res = await fetch(`${import.meta.env.VITE_API_BASE}/ask`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -114,8 +114,8 @@ const AskAi = () => {
                         messages.map((msg, i) => (
                             <div key={i} className={`flex gap-4 mb-8 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm ${msg.role === 'user'
-                                        ? 'bg-indigo-600 text-white rounded-tr-none'
-                                        : 'bg-[#1a1f26] border border-white/5 rounded-tl-none prose prose-invert'
+                                    ? 'bg-indigo-600 text-white rounded-tr-none'
+                                    : 'bg-[#1a1f26] border border-white/5 rounded-tl-none prose prose-invert'
                                     }`}>
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                                 </div>
